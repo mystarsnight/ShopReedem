@@ -18,7 +18,7 @@ body {
     background: black;
 }
 
-/* 🌈 neon animated background */
+/* 🌈 animated background */
 body::before,
 body::after {
     content: "";
@@ -28,24 +28,16 @@ body::after {
     top: -50%;
     left: -50%;
     z-index: -2;
-
-    background: conic-gradient(
-        #ff00cc,
-        #3333ff,
-        #00ffcc,
-        #ffcc00,
-        #ff00cc
-    );
-
+    background: conic-gradient(#ff00cc,#3333ff,#00ffcc,#ffcc00,#ff00cc);
     animation: spin 8s linear infinite;
+    filter: blur(80px);
     opacity: 0.7;
-    filter: blur(70px);
 }
 
 body::after {
     animation: spin 12s linear infinite reverse;
     opacity: 0.5;
-    filter: blur(100px);
+    filter: blur(120px);
 }
 
 @keyframes spin {
@@ -61,21 +53,13 @@ body::after {
     border-radius: 50%;
     pointer-events: none;
     z-index: -1;
-
-    background: radial-gradient(
-        circle,
-        rgba(0,255,204,0.25),
-        rgba(255,0,204,0.15),
-        transparent 70%
-    );
-
+    background: radial-gradient(circle, rgba(0,255,204,0.25), rgba(255,0,204,0.15), transparent);
     transform: translate(-50%, -50%);
-    filter: blur(40px);
 }
 
-/* 🧊 UI box */
+/* UI BOX */
 .box {
-    margin-top: 120px;
+    margin-top: 90px;
     display: inline-block;
     padding: 25px;
     background: rgba(0,0,0,0.6);
@@ -102,22 +86,45 @@ button {
     cursor: pointer;
 }
 
-/* 📢 message box */
+/* message */
 #message {
-    margin-top: 15px;
+    margin-top: 12px;
     padding: 10px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.4);
     width: 260px;
     margin-left: auto;
     margin-right: auto;
-    border-radius: 10px;
-    background: rgba(0,0,0,0.4);
 }
 
 .success { color: #00ff88; }
 .error { color: #ff4444; }
 .warn { color: #ffaa00; }
 
-/* 🎁 fullscreen reward */
+/* history */
+#historyBox {
+    margin-top: 20px;
+    width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 15px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.4);
+}
+
+.historyItem {
+    padding: 8px;
+    margin-top: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.historyItem:hover {
+    background: rgba(0,255,204,0.2);
+}
+
+/* fullscreen reward */
 #rewardScreen {
     position: fixed;
     width: 100%;
@@ -147,6 +154,11 @@ button {
     <div id="message">Enter a code</div>
 </div>
 
+<div id="historyBox">
+    <h3>Recent Redeemed</h3>
+    <div id="historyList">None yet</div>
+</div>
+
 <div id="rewardScreen"></div>
 
 <script>
@@ -156,26 +168,63 @@ const supabaseClient = window.supabase.createClient(
 );
 
 const message = document.getElementById("message");
+const historyList = document.getElementById("historyList");
 const rewardScreen = document.getElementById("rewardScreen");
 
+const STORAGE_KEY = "mystarsnight_redeemed";
+
+/* 💾 LOAD HISTORY */
+let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+/* MESSAGE */
 function setMsg(text, type) {
     message.className = type;
     message.innerHTML = text;
 }
 
-/* 🖱️ mouse glow */
+/* 🖱️ glow */
 const glow = document.getElementById("mouseGlow");
 document.addEventListener("mousemove", (e) => {
     glow.style.left = e.clientX + "px";
     glow.style.top = e.clientY + "px";
 });
 
-/* 🎁 fullscreen reward */
+/* 🎁 reward */
 function showReward(html) {
     rewardScreen.style.display = "flex";
-    rewardScreen.innerHTML = html || "<h1 style='color:white'>No reward</h1>";
+    rewardScreen.innerHTML = html;
 }
 
+/* 📜 SAVE */
+function saveHistory() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+/* 📜 RENDER */
+function renderHistory() {
+    if (history.length === 0) {
+        historyList.innerHTML = "None yet";
+        return;
+    }
+
+    historyList.innerHTML = "";
+
+    history.forEach((item, i) => {
+        const div = document.createElement("div");
+        div.className = "historyItem";
+        div.textContent = "🔗 " + item.code;
+
+        div.onclick = () => {
+            showReward(item.html);
+        };
+
+        historyList.appendChild(div);
+    });
+}
+
+renderHistory();
+
+/* 🔥 REDEEM */
 document.getElementById("redeemBtn").addEventListener("click", async () => {
     const code = document.getElementById("codeInput").value.trim();
 
@@ -192,7 +241,7 @@ document.getElementById("redeemBtn").addEventListener("click", async () => {
         .eq("code", code);
 
     if (error) {
-        setMsg("❌ " + error.message, "error");
+        setMsg("❌ Database error", "error");
         return;
     }
 
@@ -208,17 +257,24 @@ document.getElementById("redeemBtn").addEventListener("click", async () => {
         return;
     }
 
-    const { error: updateError } = await supabaseClient
+    await supabaseClient
         .from("codes")
         .update({ uses: row.uses + 1 })
         .eq("id", row.id);
 
-    if (updateError) {
-        setMsg("❌ Update failed", "error");
-        return;
-    }
-
     setMsg("✅ Redeemed!", "success");
+
+    /* 💾 SAVE PROPERLY */
+    history.unshift({
+        code: code,
+        html: row.html,
+        time: Date.now()
+    });
+
+    history = history.slice(0, 15);
+
+    saveHistory();
+    renderHistory();
 
     showReward(row.html);
 });
