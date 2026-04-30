@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mystarsnight Shop Redeem</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    text-align: center;
+    color: white;
+    overflow: hidden;
+    background: black;
+}
+
+/* 🌈 neon animated background */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    z-index: -2;
+
+    background: conic-gradient(
+        #ff00cc,
+        #3333ff,
+        #00ffcc,
+        #ffcc00,
+        #ff00cc
+    );
+
+    animation: spin 8s linear infinite;
+    opacity: 0.7;
+    filter: blur(70px);
+}
+
+body::after {
+    animation: spin 12s linear infinite reverse;
+    opacity: 0.5;
+    filter: blur(100px);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg) scale(1.2); }
+    to { transform: rotate(360deg) scale(1.2); }
+}
+
+/* 🖱️ mouse glow */
+#mouseGlow {
+    position: fixed;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+
+    background: radial-gradient(
+        circle,
+        rgba(0,255,204,0.25),
+        rgba(255,0,204,0.15),
+        transparent 70%
+    );
+
+    transform: translate(-50%, -50%);
+    filter: blur(40px);
+}
+
+/* 🧊 UI box */
+.box {
+    margin-top: 120px;
+    display: inline-block;
+    padding: 25px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+input {
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    width: 220px;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+}
+
+button {
+    margin-top: 10px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #00ffcc;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* 📢 message box */
+#message {
+    margin-top: 15px;
+    padding: 10px;
+    width: 260px;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.4);
+}
+
+.success { color: #00ff88; }
+.error { color: #ff4444; }
+.warn { color: #ffaa00; }
+
+/* 🎁 fullscreen reward */
+#rewardScreen {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: black;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+</style>
+</head>
+
+<body>
+
+<div id="mouseGlow"></div>
+
+<h1>Mystarsnight Shop Redeem</h1>
+
+<div class="box">
+    <input id="codeInput" placeholder="Enter Code">
+    <br>
+    <button id="redeemBtn">Redeem</button>
+
+    <div id="message">Enter a code</div>
+</div>
+
+<div id="rewardScreen"></div>
+
+<script>
+const supabaseClient = window.supabase.createClient(
+  "https://ibcjgxaryayuqjqulzbw.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliY2pneGFyeWF5dXFqcXVsemJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTc4NjEsImV4cCI6MjA5MzA3Mzg2MX0.7TacUyZlV8Bepp6oSAT_jdv1Tuld8iQsipRPrSlHPgY"
+);
+
+const message = document.getElementById("message");
+const rewardScreen = document.getElementById("rewardScreen");
+
+function setMsg(text, type) {
+    message.className = type;
+    message.innerHTML = text;
+}
+
+/* 🖱️ mouse glow */
+const glow = document.getElementById("mouseGlow");
+document.addEventListener("mousemove", (e) => {
+    glow.style.left = e.clientX + "px";
+    glow.style.top = e.clientY + "px";
+});
+
+/* 🎁 fullscreen reward */
+function showReward(html) {
+    rewardScreen.style.display = "flex";
+    rewardScreen.innerHTML = html || "<h1 style='color:white'>No reward</h1>";
+}
+
+document.getElementById("redeemBtn").addEventListener("click", async () => {
+    const code = document.getElementById("codeInput").value.trim();
+
+    if (!code) {
+        setMsg("❌ Enter a code", "error");
+        return;
+    }
+
+    setMsg("Checking...", "");
+
+    const { data, error } = await supabaseClient
+        .from("codes")
+        .select("*")
+        .eq("code", code);
+
+    if (error) {
+        setMsg("❌ " + error.message, "error");
+        return;
+    }
+
+    const row = data?.[0];
+
+    if (!row) {
+        setMsg("❌ Invalid code", "error");
+        return;
+    }
+
+    if (row.uses >= row.maxuses) {
+        setMsg("⚠️ Code fully used", "warn");
+        return;
+    }
+
+    const { error: updateError } = await supabaseClient
+        .from("codes")
+        .update({ uses: row.uses + 1 })
+        .eq("id", row.id);
+
+    if (updateError) {
+        setMsg("❌ Update failed", "error");
+        return;
+    }
+
+    setMsg("✅ Redeemed!", "success");
+
+    showReward(row.html);
+});
+</script>
+
+<link rel="icon" href="data:,">
+
+</body>
+</html>
