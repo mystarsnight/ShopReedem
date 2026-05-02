@@ -2,163 +2,75 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mystarsnight Shop Redeem</title>
+<title>Mystarsnight Redeemed</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
 body {
     margin: 0;
-    font-family: 'Orbitron', sans-serif;
+    font-family: Arial;
     text-align: center;
+    background: linear-gradient(45deg, #ff00cc, #3333ff, #00ffcc);
     color: white;
-    overflow: hidden;
-    background: black;
 }
 
-/* 🌈 animated background */
-body::before,
-body::after {
-    content: "";
-    position: fixed;
-    width: 200%;
-    height: 200%;
-    top: -50%;
-    left: -50%;
-    z-index: -2;
-    background: conic-gradient(#ff00cc,#3333ff,#00ffcc,#ffcc00,#ff00cc);
-    animation: spin 8s linear infinite;
-    filter: blur(80px);
-    opacity: 0.7;
-}
-
-body::after {
-    animation: spin 12s linear infinite reverse;
-    opacity: 0.5;
-    filter: blur(120px);
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg) scale(1.2); }
-    to { transform: rotate(360deg) scale(1.2); }
-}
-
-/* 🖱️ mouse glow */
-#mouseGlow {
-    position: fixed;
-    width: 400px;
-    height: 400px;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: -1;
-    background: radial-gradient(circle, rgba(0,255,204,0.25), rgba(255,0,204,0.15), transparent);
-    transform: translate(-50%, -50%);
-}
-
-/* UI BOX */
 .box {
-    margin-top: 90px;
-    display: inline-block;
-    padding: 25px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
+    margin-top: 120px;
 }
 
-input {
-    padding: 12px;
+input, button {
+    padding: 10px;
     border-radius: 10px;
     border: none;
-    width: 220px;
-    text-align: center;
-    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
 }
 
 button {
-    margin-top: 10px;
-    padding: 12px 20px;
-    border-radius: 10px;
-    border: none;
+    cursor: pointer;
     background: #00ffcc;
     font-weight: bold;
-    cursor: pointer;
 }
 
-/* message */
-#message {
-    margin-top: 12px;
-    padding: 10px;
-    border-radius: 10px;
-    background: rgba(0,0,0,0.4);
-    width: 260px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.success { color: #00ff88; }
-.error { color: #ff4444; }
-.warn { color: #ffaa00; }
-
-/* history */
-#historyBox {
-    margin-top: 20px;
-    width: 320px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 15px;
-    border-radius: 12px;
-    background: rgba(0,0,0,0.4);
-}
-
-.historyItem {
-    padding: 8px;
-    margin-top: 8px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.historyItem:hover {
-    background: rgba(0,255,204,0.2);
-}
-
-/* fullscreen reward */
+/* FULLSCREEN REWARD OVERLAY */
 #rewardScreen {
     position: fixed;
-    width: 100%;
-    height: 100%;
     top: 0;
     left: 0;
+    width: 100%;
+    height: 100%;
     background: black;
     display: none;
     justify-content: center;
     align-items: center;
     z-index: 9999;
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(1.1); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* hide everything inside main UI when reward shows */
+.hidden {
+    display: none;
 }
 </style>
 </head>
 
 <body>
 
-<div id="mouseGlow"></div>
+<div class="box" id="mainUI">
+    <h1>Mystarsnight Redeemed</h1>
 
-<h1>Mystarsnight Shop Redeem</h1>
-
-<div class="box">
     <input id="codeInput" placeholder="Enter Code">
-    <br>
+    <br><br>
+
     <button id="redeemBtn">Redeem</button>
-
-    <div id="message">Enter a code</div>
 </div>
 
-<div id="historyBox">
-    <h3>Recent Redeemed</h3>
-    <div id="historyList">None yet</div>
-</div>
-
+<!-- FULLSCREEN REWARD -->
 <div id="rewardScreen"></div>
 
 <script>
@@ -167,116 +79,47 @@ const supabaseClient = window.supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliY2pneGFyeWF5dXFqcXVsemJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTc4NjEsImV4cCI6MjA5MzA3Mzg2MX0.7TacUyZlV8Bepp6oSAT_jdv1Tuld8iQsipRPrSlHPgY"
 );
 
-const message = document.getElementById("message");
-const historyList = document.getElementById("historyList");
+const mainUI = document.getElementById("mainUI");
 const rewardScreen = document.getElementById("rewardScreen");
 
-const STORAGE_KEY = "mystarsnight_redeemed";
-
-/* 💾 LOAD HISTORY */
-let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-
-/* MESSAGE */
-function setMsg(text, type) {
-    message.className = type;
-    message.innerHTML = text;
-}
-
-/* 🖱️ glow */
-const glow = document.getElementById("mouseGlow");
-document.addEventListener("mousemove", (e) => {
-    glow.style.left = e.clientX + "px";
-    glow.style.top = e.clientY + "px";
-});
-
-/* 🎁 reward */
 function showReward(html) {
+    // hide UI completely
+    mainUI.style.display = "none";
+
+    // show fullscreen reward
+    rewardScreen.innerHTML = html || "<h1 style='color:white'>No reward</h1>";
     rewardScreen.style.display = "flex";
-    rewardScreen.innerHTML = html;
 }
 
-/* 📜 SAVE */
-function saveHistory() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-}
-
-/* 📜 RENDER */
-function renderHistory() {
-    if (history.length === 0) {
-        historyList.innerHTML = "None yet";
-        return;
-    }
-
-    historyList.innerHTML = "";
-
-    history.forEach((item, i) => {
-        const div = document.createElement("div");
-        div.className = "historyItem";
-        div.textContent = "🔗 " + item.code;
-
-        div.onclick = () => {
-            showReward(item.html);
-        };
-
-        historyList.appendChild(div);
-    });
-}
-
-renderHistory();
-
-/* 🔥 REDEEM */
 document.getElementById("redeemBtn").addEventListener("click", async () => {
-    const code = document.getElementById("codeInput").value.trim();
+    try {
+        const code = document.getElementById("codeInput").value.trim();
 
-    if (!code) {
-        setMsg("❌ Enter a code", "error");
-        return;
+        if (!code) return;
+
+        const { data, error } = await supabaseClient
+            .from("codes")
+            .select("*")
+            .eq("code", code);
+
+        if (error) return;
+
+        const row = data?.[0];
+        if (!row) return;
+
+        if (row.uses >= row.maxuses) return;
+
+        await supabaseClient
+            .from("codes")
+            .update({ uses: row.uses + 1 })
+            .eq("id", row.id);
+
+        // 🔥 FULLSCREEN REWARD
+        showReward(row.html);
+
+    } catch (err) {
+        console.error(err);
     }
-
-    setMsg("Checking...", "");
-
-    const { data, error } = await supabaseClient
-        .from("codes")
-        .select("*")
-        .eq("code", code);
-
-    if (error) {
-        setMsg("❌ Database error", "error");
-        return;
-    }
-
-    const row = data?.[0];
-
-    if (!row) {
-        setMsg("❌ Invalid code", "error");
-        return;
-    }
-
-    if (row.uses >= row.maxuses) {
-        setMsg("⚠️ Code fully used", "warn");
-        return;
-    }
-
-    await supabaseClient
-        .from("codes")
-        .update({ uses: row.uses + 1 })
-        .eq("id", row.id);
-
-    setMsg("✅ Redeemed!", "success");
-
-    /* 💾 SAVE PROPERLY */
-    history.unshift({
-        code: code,
-        html: row.html,
-        time: Date.now()
-    });
-
-    history = history.slice(0, 15);
-
-    saveHistory();
-    renderHistory();
-
-    showReward(row.html);
 });
 </script>
 
